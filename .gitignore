@@ -3,6 +3,7 @@
 # manually added
 yarn.lock
 package-lock.json
+text.txt
 
 # dependencies
 /node_modules

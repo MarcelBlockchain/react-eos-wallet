@@ -167,26 +167,23 @@ class App extends Component {
       });
     });
 
-  getBlockHeight = async () => {
+  getBlockHeight = async (bool = false) => {
     const result = await this.getBlockHeightP();
-    console.log(result.head_block_num);
+    if (bool) console.log('Current block height: ', result.head_block_num);
     return result.head_block_num;
   };
 
   //TODO: getPubKeyFromAccountName?
+  //TODO: testnet
+  //TODO: create Account
+  //TODO: createTransaction
+  //TODO: sign transaction
+  //TODO: broadcast transaction
 
-  //TODO: where to get blockNumHint? https://eosio.stackexchange.com/questions/1827/get-the-block-num-hint-for-calling-eos-gettransactionid-blocknumhint
-  loadData2 = () =>
-    new Promise((resolve, reject) => {
-      eos.getInfo((error, info) => {
-        if (error) reject(error);
-        else resolve(info);
-      });
-    });
-  getInfo = async (id = transactionIDtest, blockNumHint = blockNumHintTest) =>
-    //TODO: resolve
+  //TODO: where to get blockNumHint? https://github.com/EOSIO/eosjs/issues/288
+  getTransactionP = async (id = transactionIDtest, blockNumHint = blockNumHintTest) =>
     new Promise(async (resolve, reject) => {
-      const response = [];
+      const res = {};
       let blockHeight = await this.getBlockHeight();
       //eos.getScheduledTransactions(json, lowerBound, limit)
       eos.getTransaction(id, blockNumHint, (error, info) => {
@@ -194,23 +191,41 @@ class App extends Component {
         //EOS 1 confirmation = 1.5s, irreversible 99%: 4.5s, irreversible 100%: 40sec
         for (var i in info.traces) {
           for (var x in info.traces[i].act.authorization)
-            response.push({
-              'Sender / Transaction signed by: ': info.traces[i].act.authorization[x].actor,
-            });
-          console.log('Receiver: ', info.traces[i].receipt.receiver);
-          console.log('Smart Contract Owner: ', info.traces[i].act.account);
-          console.log('Message: ', info.traces[i].act.data.message);
+            res['Sender / Transaction signed by'] = info.traces[i].act.authorization[x].actor;
+          res['Receiver'] = info.traces[i].receipt.receiver;
+          res['Smart Contract Owner'] = info.traces[i].act.account;
+          res['Message'] = info.traces[i].act.data.message;
           //full data object:
           //console.log('Transaction data', info.traces[i]);
         }
-        console.log('Status: ', info.trx.receipt.status);
-        console.log('Confirmation height: ', blockHeight - info.block_num);
-        console.log('Transaction in block: ', info.block_num);
-        console.log('Transaction time in block: ', info.block_time);
+        res['Status'] = info.trx.receipt.status;
+        res['Confirmation height'] = blockHeight - info.block_num;
+        res['Transaction in block'] = info.block_num;
+        res['Transaction time in block'] = info.block_time;
       });
+      resolve(res);
     });
 
-  //binancecleos, itamnetwork1
+  getTransaction = async (id = transactionIDtest, blockNumHint = blockNumHintTest) => {
+    let result = await this.getTransactionP(id, blockNumHint);
+    console.log('Transaction details: ', result);
+    return result;
+  };
+
+  getCurrentBlockInfoP = () =>
+    new Promise((resolve, reject) => {
+      eos.getInfo((error, info) => {
+        if (error) reject(error);
+        else resolve(info);
+      });
+    });
+  getCurrentBlockInfo = async () => {
+    let result = await this.getCurrentBlockInfoP();
+    console.log('get Info:  ', result);
+    return result;
+  };
+
+  //e.g. binancecleos, itamnetwork1
   getOutgoingTransactionsP = async (accountName = 'itamnetwork1') =>
     new Promise(async (resolve, reject) => {
       const trx = [];
@@ -222,7 +237,8 @@ class App extends Component {
         const { bytes, stake_cpu_quantity, stake_net_quantity, transfer } = a.action_trace.act.data;
         const { name, data } = a.action_trace.act;
         let obj = {};
-        //TODO: ask for ALL types
+        //TODO: ask for ALL types:
+        // https://eosio.stackexchange.com/questions/1831/getactionsaccountname-possible-names-actions-action-trace-act-name?noredirect=1#comment1698_1831
         if (name === 'transfer')
           obj = {
             ...obj,
@@ -278,7 +294,7 @@ class App extends Component {
           <h3 className="App-sub-title"> made by Marcel Morales</h3>
         </header>
         <div
-          onClick={() => this.getOutgoingTransactions()}
+          onClick={() => this.getTransaction()}
           style={{
             backgroundColor: 'yellow',
             height: 200,
