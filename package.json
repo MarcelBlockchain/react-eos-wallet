@@ -6,6 +6,10 @@
     "react-scripts": "1.1.4"
   },
   "dependencies": {
+    "eosjs": "^16.0.0",
+    "eslint": "^5.2.0",
+    "eslint-config-universe": "^1.0.7",
+    "prettier": "^1.14.0",
     "react": "^16.4.2",
     "react-dom": "^16.4.2"
   },
