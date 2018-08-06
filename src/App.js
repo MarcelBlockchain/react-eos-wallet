@@ -1,23 +1,25 @@
-import React, { Component } from 'react';
+import React, { Component } from '../../Library/Caches/typescript/2.9/node_modules/@types/react';
 import * as Eos from 'eosjs';
 import logo from './logo.svg';
+import { user1ActiveKey, user2ActiveKey, user1OwnerPubKey, user1ActivePubKey } from '../testkeys';
 import './App.css';
 //Possible tool for testing wallets https://github.com/OracleChain/EOSDevHelper
 
 const floatRegex = /[^\d.-]/g;
 //testkeys
-const privKeyTest = '5HrZWBGf6ovYBqdDkoGBqzXCKRxyXdkEmke6LVufN3zK4q9Hctc';
+//const privKeyTest = '5HrZWBGf6ovYBqdDkoGBqzXCKRxyXdkEmke6LVufN3zK4q9Hctc';
+//const pubKey2Test = 'EOS7pMyqadiD7DE7uZEHuEejZu2Qa7kiMmNVHf35bJEtqyniy8vBG';
 const pubKeyTest = 'EOS7Tq7KKKz1UD5mzotQ5Ls3caVpfXKvEDdk4qKx2Xu4Qsr9UBxtW';
-const pubKey2Test = 'EOS7pMyqadiD7DE7uZEHuEejZu2Qa7kiMmNVHf35bJEtqyniy8vBG';
 const transactionIDtest = 'd4d95c85db899a0e54328b2f0c2e2062f1d7dc4445d04008836367d1c5448298';
 const blockNumHintTest = '9100334';
 
 const config = {
-  chainId: 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906',
+  //chainId: 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906',
   //keyProvider: ['MY PRIVATE KEY'],
-  keyProvider: '5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3',
-  httpEndpoint: 'https://api.eosnewyork.io:443',
-  expireInSeconds: 60,
+  //keyProvider: '5HrZWBGf6ovYBqdDkoGBqzXCKRxyXdkEmke6LVufN3zK4q9Hctc',
+  keyProvider: [user1ActiveKey, user2ActiveKey],
+  //httpEndpoint: 'https://api.eosnewyork.io:443',
+  // expireInSeconds: 60,
   // sign the transaction with a private key. Leaving a transaction unsigned avoids the need to provide a private key.
   sign: true,
   //post the transaction to the blockchain. Use false to obtain a fully signed transaction
@@ -25,31 +27,32 @@ const config = {
   verbose: false, //verbose logging such as API activity
 };
 const eos = Eos(config);
+const { ecc } = Eos.modules;
 
 class App extends Component {
   toFloat = str => parseFloat(str.replace(floatRegex, ''));
 
   fromPrivToPub = wif => {
-    const pubKey = Eos.modules.ecc.privateToPublic(wif);
+    const pubKey = ecc.privateToPublic(wif);
     console.log('PubKey: ', pubKey);
     return pubKey;
   };
 
   isPubKeyValid = pubKey => {
-    const bool = Eos.modules.ecc.isValidPublic(pubKey) === true;
+    const bool = ecc.isValidPublic(pubKey) === true;
     console.log('is pubKey valid? --> ', bool);
     return bool;
   };
 
   isPrivKeyValid = privKey => {
-    const bool = Eos.modules.ecc.isValidPrivate(privKey) === true;
+    const bool = ecc.isValidPrivate(privKey) === true;
     console.log('is privKey valid? --> ', bool);
     return bool;
   };
 
   //seed: 'string' any length string. This is private. The same seed produces the same
   //private key every time. At least 128 random bits should be used to produce a good private key.
-  generatePrivKeyFromSeed = seed => Eos.modules.ecc.seedPrivate(seed);
+  generatePrivKeyFromSeed = seed => ecc.seedPrivate(seed);
 
   //EOS public and private keys can be generated off the chain, but EOS users need to create a user
   //name before they can operate on the chain. So activated users are needed to send on-chain transactions
@@ -57,7 +60,7 @@ class App extends Component {
 
   generateRandomPrivKeyP = () =>
     new Promise((resolve, reject) => {
-      Eos.modules.ecc.randomKey().then(privateKey => {
+      ecc.randomKey().then(privateKey => {
         //console.log('random private key: ', privateKey);
         resolve(privateKey);
       });
@@ -189,6 +192,8 @@ class App extends Component {
       eos.getTransaction(id, blockNumHint, (error, info) => {
         if (error) reject(error);
         //EOS 1 confirmation = 1.5s, irreversible 99%: 4.5s, irreversible 100%: 40sec
+        //receipt = the node accepted it without error,means that there is a high probability other producers will accept it.
+        //confirmation: you should see the transaction in the transaction history with the block number of which it is included.
         for (var i in info.traces) {
           for (var x in info.traces[i].act.authorization)
             res['Sender / Transaction signed by'] = info.traces[i].act.authorization[x].actor;
@@ -239,6 +244,7 @@ class App extends Component {
         let obj = {};
         //TODO: ask for ALL types:
         // https://eosio.stackexchange.com/questions/1831/getactionsaccountname-possible-names-actions-action-trace-act-name?noredirect=1#comment1698_1831
+        //TODO: if not any of these below, just return whole object
         if (name === 'transfer')
           obj = {
             ...obj,
@@ -285,6 +291,83 @@ class App extends Component {
     return aboveHeight;
   };
 
+  createAccount = (pubKey, name) => {
+    eos.transaction(tr => {
+      tr.newaccount({
+        creator: 'eosio',
+        name,
+        owner: pubKey,
+        active: pubKey,
+      });
+
+      tr.buyrambytes({
+        payer: 'eosio',
+        receiver: name,
+        bytes: 8192,
+      });
+
+      tr.delegatebw({
+        from: 'eosio',
+        receiver: name,
+        stake_net_quantity: '10.0000 SYS',
+        stake_cpu_quantity: '10.0000 SYS',
+        transfer: 0,
+      });
+    });
+  };
+
+  createAccount2 = () => {
+    eos.transaction(tr => {
+      tr.newaccount({
+        creator: 'eosio',
+        name: 'user1',
+        owner: user1OwnerPubKey,
+        active: user1ActivePubKey,
+      });
+    });
+  };
+
+  //   await eos.transaction(eos =>
+  //     {
+  //       eos.transfer('inita', 'initb', '1.0000 SYS', ''/*memo*/)
+  //       eos.transfer('inita', 'initc', '1.0000 SYS', ''/*memo*/)
+  //       // Returning a promise is optional (but handled as expected)
+  //     }
+  //     // [options],
+  //     // [callback]
+  //   )
+
+  //   // transaction on a single contract
+  //   await eos.transaction('myaccount', myaccount => {
+  //     myaccount.transfer('myaccount', 'inita', '10.000 TOK@myaccount', '')
+  //   })
+
+  //   // The contract method does not take an array so must be called once for
+  // // each contract that is needed.
+  // const myaccount = await eos.contract('myaccount')
+  // await myaccount.transfer('myaccount', 'inita', '1.000 TOK', '')
+
+  // const options = {
+  //   authorization: 'eosaliyun123@owner',
+  //   broadcast: true,
+  //   sign: true
+  // }
+
+  // eos.transfer({
+  //   from: 'eosaliyun123@owner',
+  //   to: 'linyaoeos123',
+  //   quantity: '3 IPOS',
+  //   memo: '',
+  // }, options).then(data => {
+  //   console.log(data);
+  // }, (err => console.log(err)));
+
+  transferP = (from, to, amount, memo = '') =>
+    new Promise(async (resolve, eject) => {
+      const myaccount = await eos.contract(from);
+      await myaccount.transfer(from, to, amount, memo);
+    });
+
   render() {
     return (
       <div className="App">
@@ -294,7 +377,7 @@ class App extends Component {
           <h3 className="App-sub-title"> made by Marcel Morales</h3>
         </header>
         <div
-          onClick={() => this.getTransaction()}
+          onClick={() => this.createAccount2()}
           style={{
             backgroundColor: 'yellow',
             height: 200,

@@ -4,6 +4,7 @@
 yarn.lock
 package-lock.json
 text.txt
+testkeys.js
 
 # dependencies
 /node_modules
