@@ -1,9 +1,7 @@
-import React, { Component } from '../../Library/Caches/typescript/2.9/node_modules/@types/react';
+import React, { Component } from 'react';
 import * as Eos from 'eosjs';
 import logo from './logo.svg';
-import { user1ActiveKey, user2ActiveKey, user1OwnerPubKey, user1ActivePubKey } from '../testkeys';
 import './App.css';
-//Possible tool for testing wallets https://github.com/OracleChain/EOSDevHelper
 
 const floatRegex = /[^\d.-]/g;
 //testkeys
@@ -14,17 +12,15 @@ const transactionIDtest = 'd4d95c85db899a0e54328b2f0c2e2062f1d7dc4445d0400883636
 const blockNumHintTest = '9100334';
 
 const config = {
-  //chainId: 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906',
-  //keyProvider: ['MY PRIVATE KEY'],
-  //keyProvider: '5HrZWBGf6ovYBqdDkoGBqzXCKRxyXdkEmke6LVufN3zK4q9Hctc',
-  keyProvider: [user1ActiveKey, user2ActiveKey],
+  //chainId: 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906', // public net
+  //chainId: 'cf057bbfb72640471fd910bcb67639c22df9f92470936cddc1ade0e2f2e7dc4f', //test net
+  //keyProvider: ['MY PRIVATE KEY'], //used globally for signing transactions
+  keyProvider: ['5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3'],
   //httpEndpoint: 'https://api.eosnewyork.io:443',
-  // expireInSeconds: 60,
-  // sign the transaction with a private key. Leaving a transaction unsigned avoids the need to provide a private key.
-  sign: true,
-  //post the transaction to the blockchain. Use false to obtain a fully signed transaction
-  broadcast: true,
-  verbose: false, //verbose logging such as API activity
+  //expireInSeconds: 60,
+  //sign: true,   // sign the transaction with a private key. Leaving a transaction unsigned avoids the need to provide a private key.
+  //broadcast: true,   //post the transaction to the blockchain. Use false to obtain a fully signed transaction
+  verbose: true, //verbose logging such as API activity
 };
 const eos = Eos(config);
 const { ecc } = Eos.modules;
@@ -73,7 +69,7 @@ class App extends Component {
   };
 
   //id is the 12 character EOS name aka account name
-  getAllAccountBalancesP = (id = 'itamnetwork1') =>
+  getAccSystemStatsP = (id = 'itamnetwork1') =>
     new Promise((resolve, reject) => {
       eos.getAccount(id, (error, result) => {
         if (error) reject(error);
@@ -81,14 +77,14 @@ class App extends Component {
       });
     });
 
-  getAllAccountBalances = async (id = 'itamnetwork1') => {
-    const result = await this.getAllAccountBalancesP(id);
-    let { cpu_weight, net_weight, ram_bytes } = result;
-    cpu_weight = this.toFloat(cpu_weight);
-    net_weight = this.toFloat(net_weight);
-    console.log('CPU weight in EOS: ', cpu_weight);
-    console.log('Net weight in EOS: ', net_weight);
-    console.log('RAM in KB: ', ram_bytes / 1000);
+  getAccSystemStats = async (id = 'itamnetwork1') => {
+    const result = await this.getAccSystemStatsP(id);
+    //let { cpu_weight, net_weight, ram_bytes } = result;
+    if (result.cpu_weight != null) result.cpu_weight = this.toFloat(result.cpu_weight);
+    if (result.net_weight) result.net_weight = this.toFloat(result.net_weight);
+    console.log('CPU weight in EOS: ', result.cpu_weight);
+    console.log('Net weight in EOS: ', result.net_weight);
+    console.log('RAM in KB: ', result.ram_bytes / 1000);
     return result;
   };
 
@@ -96,7 +92,6 @@ class App extends Component {
     new Promise((resolve, reject) => {
       eos.getKeyAccounts(pubKey, (error, result) => {
         if (error) reject(error);
-        //console.log(result);
         resolve(result);
         //array of account names, can be multiples
         //output example: { account_names: [ 'itamnetwork1' ] }
@@ -110,45 +105,23 @@ class App extends Component {
   };
 
   //If you look at the result value, you can see an array in the form of a string.
-  //This is because there could be tokens with many different symbols in the account. On the EOS testnet, Jungle Net,
-  //if you search eosio.token excluding symbol, you can see 2 tokens.
-  getCurrencyBalanceP = (
-    contractName = 'eosio.token',
-    accountName = 'itamnetwork1',
-    symbol = 'EOS'
-  ) =>
+  //This is because there could be tokens with many different symbols in the account
+  getCurrencyBalanceP = (accountName = 'itamnetwork1', contractName = 'eosio.token') =>
     new Promise((resolve, reject) => {
-      eos.getCurrencyBalance(contractName, accountName, symbol, (error, result) => {
-        let sum = 0.0;
-        if (error) {
-          console.log(error);
-          return;
-        }
-        if (result.length === 1)
-          console.log('Total EOS balance: ', parseFloat(result[0].replace(floatRegex, '')));
-        else {
-          for (var i in result) {
-            let amount = parseFloat(result[i].replace(floatRegex, ''));
-            sum += amount;
-            console.log(`Amount of token ${i}: ${amount}`);
-          }
-          console.log('Total EOS amount: ', sum);
-        }
+      eos.getCurrencyBalance(contractName, accountName, (error, result) => {
+        if (error) reject(error);
+        resolve(result);
       });
     });
 
-  getCurrencyBalance = async (
-    contractName = 'eosio.token',
-    accountName = 'itamnetwork1',
-    symbol = 'EOS'
-  ) => {
-    let result = await this.getCurrencyBalanceP(contractName, accountName, symbol);
-    console.log('result: ', result);
+  getCurrencyBalance = async (accountName = 'itamnetwork1', contractName = 'eosio.token') => {
+    let result = await this.getCurrencyBalanceP(accountName, contractName);
+    console.log(`Balance of ${accountName}: `, result);
   };
 
-  getCurrencyStatsP = (contractName = 'eosio.token', symbol = 'EOS') =>
+  getCurrencyStatsP = (symbol = 'EOS', contractName = 'eosio.token') =>
     new Promise((resolve, reject) => {
-      eos.getCurrencyStats(contractName, symbol, (error, result) => {
+      eos.getCurrencyStats(symbol, contractName, (error, result) => {
         if (error) reject(error);
         resolve(result);
         //output { EOS: { supply: '1006148640.3388 EOS', max_supply: '10000000000.0000 EOS',
@@ -156,8 +129,8 @@ class App extends Component {
       });
     });
 
-  getCurrencyStats = async (contractName = 'eosio.token', symbol = 'EOS') => {
-    let result = await this.getCurrencyStatsP();
+  getCurrencyStats = async (symbol = 'EOS', contractName = 'eosio.token') => {
+    let result = await this.getCurrencyStatsP(symbol, contractName);
     console.log(result);
     return result;
   };
@@ -170,30 +143,21 @@ class App extends Component {
       });
     });
 
-  getBlockHeight = async (bool = false) => {
+  getBlockHeight = async (print = false) => {
     const result = await this.getBlockHeightP();
-    if (bool) console.log('Current block height: ', result.head_block_num);
+    if (print) console.log('Current block height: ', result.head_block_num);
     return result.head_block_num;
   };
-
-  //TODO: getPubKeyFromAccountName?
-  //TODO: testnet
-  //TODO: create Account
-  //TODO: createTransaction
-  //TODO: sign transaction
-  //TODO: broadcast transaction
 
   //TODO: where to get blockNumHint? https://github.com/EOSIO/eosjs/issues/288
   getTransactionP = async (id = transactionIDtest, blockNumHint = blockNumHintTest) =>
     new Promise(async (resolve, reject) => {
       const res = {};
       let blockHeight = await this.getBlockHeight();
-      //eos.getScheduledTransactions(json, lowerBound, limit)
       eos.getTransaction(id, blockNumHint, (error, info) => {
         if (error) reject(error);
-        //EOS 1 confirmation = 1.5s, irreversible 99%: 4.5s, irreversible 100%: 40sec
-        //receipt = the node accepted it without error,means that there is a high probability other producers will accept it.
-        //confirmation: you should see the transaction in the transaction history with the block number of which it is included.
+        // Transactions can be considered confirmed with 99.9% certainty after an average of 0.25 seconds from time of broadcast.
+        // The EOS aBFT algorithm provides 100% confirmation of irreversibility within 1 second.
         for (var i in info.traces) {
           for (var x in info.traces[i].act.authorization)
             res['Sender / Transaction signed by'] = info.traces[i].act.authorization[x].actor;
@@ -224,6 +188,7 @@ class App extends Component {
         else resolve(info);
       });
     });
+
   getCurrentBlockInfo = async () => {
     let result = await this.getCurrentBlockInfoP();
     console.log('get Info:  ', result);
@@ -242,9 +207,8 @@ class App extends Component {
         const { bytes, stake_cpu_quantity, stake_net_quantity, transfer } = a.action_trace.act.data;
         const { name, data } = a.action_trace.act;
         let obj = {};
-        //TODO: ask for ALL types:
         // https://eosio.stackexchange.com/questions/1831/getactionsaccountname-possible-names-actions-action-trace-act-name?noredirect=1#comment1698_1831
-        //TODO: if not any of these below, just return whole object
+        //TODO: if not any of these below, just return the whole object. Double check node_modules/eosjs/lib/schema/eosio_system.json
         if (name === 'transfer')
           obj = {
             ...obj,
@@ -279,13 +243,13 @@ class App extends Component {
       resolve(trx);
     });
 
-  getOutgoingTransactions = async height => {
-    const result = await this.getOutgoingTransactionsP();
+  getOutgoingTransactions = async (accountName, height) => {
+    const result = await this.getOutgoingTransactionsP(accountName);
     if (!height) {
       console.log(result);
-      return;
+      return result;
     }
-    //use 'height' to get all transactions above a specific blockheight
+    //use 'height' to get all transactions above a specific block height
     const aboveHeight = result.filter(a => a.block_num > height);
     console.log(aboveHeight);
     return aboveHeight;
@@ -294,7 +258,7 @@ class App extends Component {
   createAccount = (pubKey, name) => {
     eos.transaction(tr => {
       tr.newaccount({
-        creator: 'eosio',
+        creator: 'eosio', //acc_name, see createAccount2()
         name,
         owner: pubKey,
         active: pubKey,
@@ -307,7 +271,7 @@ class App extends Component {
       });
 
       tr.delegatebw({
-        from: 'eosio',
+        from: 'eosio', //acc_name
         receiver: name,
         stake_net_quantity: '10.0000 SYS',
         stake_cpu_quantity: '10.0000 SYS',
@@ -316,57 +280,65 @@ class App extends Component {
     });
   };
 
-  createAccount2 = () => {
+  //Must be less than 13 characters
+  //Can only contain the following symbols: .12345abcdefghijklmnopqrstuvwxyz
+
+  createAccount2 = (creator, name, ownerPubKey, activePubKey) => {
     eos.transaction(tr => {
       tr.newaccount({
-        creator: 'eosio',
-        name: 'user1',
-        owner: user1OwnerPubKey,
-        active: user1ActivePubKey,
+        creator: 'eosio', //account_name
+        name: 'mocnemsnwzp4', //new account name
+        owner: 'EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV', //owner pubkey
+        active: 'EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV', //active pubkey
       });
     });
   };
 
-  //   await eos.transaction(eos =>
-  //     {
-  //       eos.transfer('inita', 'initb', '1.0000 SYS', ''/*memo*/)
-  //       eos.transfer('inita', 'initc', '1.0000 SYS', ''/*memo*/)
-  //       // Returning a promise is optional (but handled as expected)
-  //     }
-  //     // [options],
-  //     // [callback]
-  //   )
+  //TODO: sign transaction
 
-  //   // transaction on a single contract
-  //   await eos.transaction('myaccount', myaccount => {
-  //     myaccount.transfer('myaccount', 'inita', '10.000 TOK@myaccount', '')
-  //   })
+  transfer = async (from, to, amount, memo = '', sign = true, broadcast = true) => {
+    const options = {
+      //authorization: `${from}@active`, //@active for activeKey, @owner for Owner key
+      //default authorizations will be calculated.
+      broadcast,
+      sign,
+    };
 
-  //   // The contract method does not take an array so must be called once for
-  // // each contract that is needed.
-  // const myaccount = await eos.contract('myaccount')
-  // await myaccount.transfer('myaccount', 'inita', '1.000 TOK', '')
+    const transaction = await eos.transaction(
+      'eosio.token',
+      acc => {
+        acc.transfer(from, to, amount, memo);
+      },
+      options
+    );
+    console.log(transaction);
+    this.setState({ data: transaction.transaction });
+    return transaction.transaction;
+  };
 
-  // const options = {
-  //   authorization: 'eosaliyun123@owner',
-  //   broadcast: true,
-  //   sign: true
-  // }
+  pushTransaction = async txrID => {
+    const pushed = await eos.pushTransaction(this.state.data);
+    console.log('pushed: ', pushed);
+  };
 
-  // eos.transfer({
-  //   from: 'eosaliyun123@owner',
-  //   to: 'linyaoeos123',
-  //   quantity: '3 IPOS',
-  //   memo: '',
-  // }, options).then(data => {
-  //   console.log(data);
-  // }, (err => console.log(err)));
+  createToken = async (amountNsymbol, to, memo = '') => {
+    await eos.transaction('eosio.token', acc => {
+      // Create the initial token with its max supply
+      // const options = {authorization: 'acc', broadcast: true, sign: true} // default
+      // OR const options = [{"actor":"eosio.token","permission":"active"}] //default (API log)
 
-  transferP = (from, to, amount, memo = '') =>
-    new Promise(async (resolve, eject) => {
-      const myaccount = await eos.contract(from);
-      await myaccount.transfer(from, to, amount, memo);
-    });
+      acc.create('eosio.token', amountNsymbol); //, options)
+      //according to eosio_token.json no arg reserved for 'name'
+
+      // Issue some of the max supply for circulation into an arbitrary account
+      acc.issue('eosio.token', amountNsymbol, 'issue');
+      acc.transfer('eosio.token', to, '5000.000 LLL', memo);
+    }); //options
+    const balance = await eos.getCurrencyBalance('eosio.token', to);
+    console.log(`Currency balance ${to}: `, balance);
+    const balance2 = await eos.getCurrencyBalance('eosio.token', 'eosio.token');
+    console.log('Currency balance eosio.token: ', balance2);
+  };
 
   render() {
     return (
@@ -374,20 +346,39 @@ class App extends Component {
         <header className="App-header">
           <img src={logo} className="App-logo" alt="logo" />
           <h1 className="App-title">Welcome to simple JS EOS wallet</h1>
-          <h3 className="App-sub-title"> made by Marcel Morales</h3>
+          <h3 className="App-sub-title"> made by Marcel Morales. Check ./App.js</h3>
         </header>
         <div
-          onClick={() => this.createAccount2()}
+          onClick={() => this.generateRandomPrivKey()}
           style={{
             backgroundColor: 'yellow',
-            height: 200,
-            width: 200,
+            height: 100,
+            width: 100,
           }}>
-          <h3>Click me</h3>
+          <h3>Main fct</h3>
+        </div>
+        <div
+          onClick={() =>
+            this.getAccountNamesFromPubKey('EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV')
+          }
+          style={{
+            backgroundColor: 'red',
+            height: 100,
+            width: 100,
+          }}>
+          <h3>getAccountNamesFromPubKey</h3>
+        </div>
+        <div
+          onClick={() => this.transfer('inita', 'initb', '2.0000 SYS', 'memo', false, false)}
+          style={{
+            backgroundColor: 'blue',
+            height: 100,
+            width: 100,
+          }}>
+          <h3>Transfer</h3>
         </div>
       </div>
     );
   }
 }
-
 export default App;
