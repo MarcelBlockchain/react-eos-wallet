@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import bip39 from 'bip39';
 import * as Eos from 'eosjs';
 import logo from './logo.svg';
 import './App.css';
@@ -22,7 +23,10 @@ const stake_net_quantity = '10.0000 SYS';
 const stake_cpu_quantity = '10.0000 SYS';
 const transfer = 0;
 const quantityTest = '2.0000 SYS';
-
+const mnemonicTest =
+  'artwork become april open dance library mushroom dune involve bitter winter layer';
+const mnemonicTest2 =
+  'favorite lunch excess must month original potato blame charge curtain display salute';
 //----MAIN NET----
 // const config = {
 //   chainId: 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906', // main net
@@ -80,6 +84,30 @@ class App extends Component {
   // EOS public and private keys can be generated off the chain, but EOS users need to create a user
   // name before they can operate on the chain. So activated users are needed to send on-chain transactions
   // to new users in order to help them create accounts. By default users need to find Tripartite help.
+
+  //  src: https://github.com/bitcoinjs/bip39/blob/master/index.js
+  //  Generates a random mnemonic (uses crypto.randomBytes under the hood), defaults to 128-bits of entropy
+  //  and derives the master, owner & active private keys
+  generateMnemonic = (strength = 128, rng, wordlist) => {
+    //std args: bip39.generateMnemonic (strength = 128, rng = randomBytes(), wordlist = english)
+    //strength = 256 for 24 words, 126 for 12
+    const mnemonic = bip39.generateMnemonic(strength, rng, wordlist);
+    console.log(mnemonic);
+    return mnemonic;
+  };
+
+  deriveFromMnemonic = mnemonic => {
+    const master = ecc.PrivateKey.fromSeed(mnemonic);
+    const owner = master.getChildKey('owner');
+    const active = owner.getChildKey('active');
+    const masterPK = master.toWif();
+    const ownerPK = owner.toWif();
+    const activePK = active.toWif();
+    console.log('master PK: ', masterPK);
+    console.log('owner PK: ', ownerPK);
+    console.log('active PK: ', activePK);
+    return { masterPK, ownerPK, activePK };
+  };
 
   generateRandomPrivKeyP = () =>
     new Promise((resolve, reject) => {
@@ -439,15 +467,13 @@ class App extends Component {
           <h3 className="App-sub-title"> made by Marcel Morales. Check ./App.js</h3>
         </header>
         <div
-          onClick={() =>
-            this.transferSignPushTransaction('inita', 'initb', '2.0000 SYS', 'hello', privKeyTest)
-          }
+          onClick={() => this.deriveFromMnemonic(this.generateMnemonic())}
           style={{
             backgroundColor: 'yellow',
             height: 100,
             width: 100,
           }}>
-          <h3>Main fct</h3>
+          <h3>deriveFromMnemonic</h3>
         </div>
         <div
           onClick={() => this.getTransaction(exampleTrxMainNet)}
